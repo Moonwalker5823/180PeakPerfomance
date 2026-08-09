@@ -2,9 +2,7 @@ import { Section } from '@/components/ui/Section'
 import { Container } from '@/components/ui/Container'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { site } from '@/config/site'
-import { clips } from '@/config/clips'
-
-const portrait = clips.find((c) => c.id === 'sweat') ?? clips[0]
+import { natePortrait } from '@/config/clips'
 
 export function MeetNate() {
   return (
@@ -13,9 +11,13 @@ export function MeetNate() {
         <div className="grid gap-14 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
             <div className="relative aspect-[4/5] w-full overflow-hidden border border-line">
+              {/* A still cut for this box specifically, not a frame borrowed
+                  from a hero clip — those are chosen for motion, so they're
+                  usually mid-movement and blurred, and a 2.12:1 plate loses
+                  most of its width to a 4:5 crop. */}
               <img
-                src={portrait.poster}
-                alt={portrait.alt}
+                src={natePortrait}
+                alt={`${site.founder}, founder of ${site.name}`}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover grayscale"
@@ -28,7 +30,10 @@ export function MeetNate() {
                 so the eyebrow carries the tag. */}
             <Eyebrow as="h2">{site.about.eyebrow}</Eyebrow>
 
-            <blockquote className="font-display mt-8 text-[clamp(1.9rem,4.6vw,3.6rem)] text-paper">
+            {/* `.font-display` sets line-height 0.86, which is right for a
+                one or two line headline and collides on a block this long —
+                ascenders run into the line above. Overridden here. */}
+            <blockquote className="font-display mt-8 text-[clamp(1.7rem,3.6vw,2.9rem)] leading-[1.04] text-paper">
               “{site.about.quote}”
             </blockquote>
 

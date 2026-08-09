@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { clips as allClips, heroPoster, lightestClip, type Clip } from '@/config/clips'
+import { clips as allClips, heroPoster, heroPosterPortrait, type Clip } from '@/config/clips'
 import { useReducedMotion, prefersLightMedia } from '@/hooks/useReducedMotion'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useInView } from '@/hooks/useInView'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/cn'
 
 type Props = {
@@ -12,7 +12,7 @@ type Props = {
   onCut?: (index: number) => void
 }
 
-type Mode = 'still' | 'single' | 'reel'
+type Mode = 'still' | 'reel'
 
 /**
  * How long each clip holds, in play order.
@@ -31,10 +31,14 @@ const HOLDS_MS = [2600, 2000, 900, 2300, 900, 2400, 3000]
  * Each shot also drifts forward slightly across its hold, because a locked-off
  * still frame is the fastest way to make video look like a background image.
  *
- * Three modes, chosen from what the device tells us:
+ * Two modes:
  *   still   reduced-motion or save-data — one poster image, no video at all
- *   single  narrow screens — the smallest clip on a loop, no cutting
- *   reel    the full sequence
+ *   reel    the full sequence, on every screen size
+ *
+ * Phones get the cuts too. An earlier version dropped them to a single looping
+ * clip to save data, which just read as the hero being broken — and the
+ * progressive mounting below already keeps the initial cost to two clips
+ * regardless of screen size, so the saving wasn't worth the effect.
  *
  * Clips mount progressively: only the first two are in the DOM on load, and
  * each cut admits the next. Mounting all seven up front would put several
@@ -42,11 +46,15 @@ const HOLDS_MS = [2600, 2000, 900, 2300, 900, 2400, 3000]
  */
 export function VideoCutReel({ clips = allClips, className, onCut }: Props) {
   const reduced = useReducedMotion()
-  const isNarrow = useMediaQuery('(max-width: 768px)')
   const [lightMedia] = useState(prefersLightMedia)
+  // Portrait viewports get the 9:16 cuts: the wide plate is 2.12:1, so
+  // object-cover would drop about two thirds of every frame and slice whoever
+  // is in it. The portrait files are also roughly half the weight.
+  const isPortrait = useMediaQuery('(max-aspect-ratio: 1/1)')
   const { ref: stageRef, inView } = useInView<HTMLDivElement>({ once: false, threshold: 0 })
 
-  const mode: Mode = reduced || lightMedia ? 'still' : isNarrow ? 'single' : 'reel'
+  const mode: Mode = reduced || lightMedia ? 'still' : 'reel'
+  const pick = (clip: Clip) => (isPortrait ? clip.portrait : clip.wide)
 
   const [index, setIndex] = useState(0)
   // Highest clip index allowed in the DOM. Starts at 1 so the second clip is
@@ -93,8 +101,8 @@ export function VideoCutReel({ clips = allClips, className, onCut }: Props) {
     videoRefs.current.forEach((video, i) => {
       if (!video) return
 
-      const isActive = i === (mode === 'single' ? 0 : index)
-      if (isActive && (running || mode === 'single')) {
+      const isActive = i === index
+      if (isActive && running) {
         video.currentTime = 0
         void video.play().catch(() => {
           /* autoplay refused — the poster stands in */
@@ -127,7 +135,7 @@ export function VideoCutReel({ clips = allClips, className, onCut }: Props) {
     return (
       <div ref={stageRef} className={cn('absolute inset-0 overflow-hidden bg-ink', className)}>
         <img
-          src={heroPoster}
+          src={isPortrait ? heroPosterPortrait : heroPoster}
           alt=""
           className="h-full w-full object-cover"
           fetchPriority="high"
@@ -137,24 +145,25 @@ export function VideoCutReel({ clips = allClips, className, onCut }: Props) {
     )
   }
 
-  const visible = mode === 'single' ? [lightestClip] : clips.slice(0, mountedUpTo + 1)
-  const activeIndex = mode === 'single' ? 0 : index
+  const visible = clips.slice(0, mountedUpTo + 1)
 
   return (
     <div ref={stageRef} className={cn('absolute inset-0 overflow-hidden bg-ink', className)}>
       <div ref={innerRef} className="absolute inset-0 will-change-transform">
         {visible.map((clip, i) => (
           <video
-            key={clip.id}
+            // Keyed by variant so an orientation change remounts the element;
+            // swapping <source> on a live <video> does nothing without a reload.
+            key={`${clip.id}-${isPortrait ? 'p' : 'w'}`}
             ref={(el) => {
               videoRefs.current[i] = el
             }}
             // No transition — the swap must be instantaneous to read as a cut.
             className={cn(
               'absolute inset-0 h-full w-full object-cover will-change-transform',
-              i === activeIndex ? 'opacity-100' : 'opacity-0',
+              i === index ? 'opacity-100' : 'opacity-0',
             )}
-            poster={clip.poster}
+            poster={pick(clip).poster}
             muted
             loop
             playsInline
@@ -162,13 +171,13 @@ export function VideoCutReel({ clips = allClips, className, onCut }: Props) {
             aria-hidden
             tabIndex={-1}
           >
-            <source src={clip.webm} type="video/webm" />
-            <source src={clip.mp4} type="video/mp4" />
+            <source src={pick(clip).webm} type="video/webm" />
+            <source src={pick(clip).mp4} type="video/mp4" />
           </video>
         ))}
       </div>
 
-      {cutCount > 0 && mode === 'reel' && (
+      {cutCount > 0 && (
         <>
           <div key={`flash-${cutCount}`} className="cut-flash pointer-events-none absolute inset-0 bg-ink" />
           <div key={`split-${cutCount}`} className="cut-split pointer-events-none absolute inset-0" />

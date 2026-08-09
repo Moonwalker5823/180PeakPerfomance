@@ -40,14 +40,25 @@ const MANIFEST = join(root, 'src', 'config', 'clips.ts')
  * turnaround → calm.
  */
 const CLIPS = [
-  { id: 'gym-stand',  start: 46.8,  duration: 2.2, alt: 'Nate standing in the brick gym' },              // [46.4–49.6]
-  { id: 'back-squat', start: 21.6,  duration: 2.0, alt: 'Nate under a loaded barbell mid-squat' },       // [21.3–24.0]
-  { id: 'coaching',   start: 68.7,  duration: 2.0, alt: 'Nate coaching a client through battle ropes' }, // [68.4–71.1]
-  { id: 'playa-wall', start: 39.4,  duration: 2.2, alt: 'Nate outside the juice bar' },                  // [39.1–42.5]
-  { id: 'sweat',      start: 71.5,  duration: 2.2, alt: 'Close on Nate mid-set, catching his breath' },  // [71.1–74.7]
-  { id: 'arms-up',    start: 85.7,  duration: 2.2, alt: 'Nate with arms raised against open sky' },      // [85.3–88.9]
-  { id: 'beach',      start: 124.8, duration: 2.2, alt: 'Nate on the beach at the water line' },         // [124.4–128.0]
+  { id: 'gym-stand',  start: 46.8,  duration: 2.2, fx: 0.44, alt: 'Nate standing in the brick gym' },              // [46.4–49.6]
+  // fx trails the movement: he drifts right across this shot, so the crop is
+  // set past where he starts rather than on him. Framing from the first frame
+  // alone loses him to the edge by the end.
+  { id: 'back-squat', start: 21.6,  duration: 2.0, fx: 0.50, alt: 'Nate under a loaded barbell mid-squat' },       // [21.3–24.0]
+  { id: 'coaching',   start: 68.7,  duration: 2.0, fx: 0.60, alt: 'Nate coaching a client through battle ropes' }, // [68.4–71.1]
+  { id: 'playa-wall', start: 39.4,  duration: 2.2, fx: 0.44, alt: 'Nate outside the juice bar' },                  // [39.1–42.5]
+  { id: 'sweat',      start: 71.5,  duration: 2.2, fx: 0.34, alt: 'Close on Nate mid-set, catching his breath' },  // [71.1–74.7]
+  { id: 'arms-up',    start: 85.7,  duration: 2.2, fx: 0.48, alt: 'Nate with arms raised against open sky' },      // [85.3–88.9]
+  { id: 'beach',      start: 124.8, duration: 2.2, fx: 0.40, alt: 'Nate on the beach at the water line' },         // [124.4–128.0]
 ]
+
+/**
+ * A note on `fx`, since it looks like the kind of thing that should be
+ * automated: it isn't reliably. Edge density picks the brick wall over the
+ * person, and skin-tone centroids land on a bare torso rather than the face.
+ * These were read off rendered candidate crops. If the clips change, render
+ * the candidates and look — don't trust a heuristic.
+ */
 
 async function exists(p) {
   try {
@@ -148,6 +159,32 @@ const CROP = 'crop=1280:604:0:58'
  */
 const OUT_WIDTH = 1600
 
+/**
+ * Portrait variant, for phones.
+ *
+ * The cropped source is 2.12:1 — on a 375px-wide portrait phone, `object-cover`
+ * throws away roughly two thirds of every frame and slices whoever is in it.
+ * So each clip gets its own 9:16 cut, positioned by the `fx` focus point in
+ * CLIPS (0 = left edge, 1 = right edge), read off the posters against thirds
+ * guides rather than guessed.
+ *
+ * 9:16 out of a 604-tall picture is 340 wide, upscaled to 720x1280. That is a
+ * 2.1x upscale, but the 604px source height is the hard ceiling on a phone at
+ * any DPR — framing is what's actually recoverable here, not sharpness.
+ */
+const PORTRAIT = { w: 720, h: 1280 }
+const SRC_H = 604
+const SRC_W = 1280
+
+function portraitCrop(fx) {
+  // Even width, or libx264 rejects it.
+  const cropW = Math.round((SRC_H * PORTRAIT.w) / PORTRAIT.h / 2) * 2
+  const maxX = SRC_W - cropW
+  const x = Math.max(0, Math.min(maxX, Math.round(fx * SRC_W - cropW / 2)))
+  // Offsets are relative to the full frame, so the letterbox y=58 is added back.
+  return `crop=${cropW}:${SRC_H}:${x}:58`
+}
+
 async function encodeClip({ id, start, duration }) {
   const base = join(OUT, id)
   const common = ['-ss', String(start), '-i', SOURCE, '-t', String(duration), '-an']
@@ -180,6 +217,37 @@ async function encodeClip({ id, start, duration }) {
     '-ss', String(start + 0.1), '-i', SOURCE,
     '-frames:v', '1', '-vf', `${CROP},scale=${OUT_WIDTH}:-2:flags=lanczos`,
     '-q:v', '4',
+    `${base}.jpg`,
+  ])
+}
+
+async function encodePortrait({ id, start, duration, fx }) {
+  const base = join(OUT, `${id}-portrait`)
+  const common = ['-ss', String(start), '-i', SOURCE, '-t', String(duration), '-an']
+  const filter = `${portraitCrop(fx)},scale=${PORTRAIT.w}:${PORTRAIT.h}:flags=lanczos,fps=30`
+
+  await run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    ...common, '-vf', filter,
+    '-c:v', 'libx264', '-crf', '28', '-preset', 'slow',
+    '-profile:v', 'main', '-pix_fmt', 'yuv420p',
+    '-movflags', '+faststart',
+    `${base}.mp4`,
+  ])
+
+  await run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    ...common, '-vf', filter,
+    '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0',
+    '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2',
+    `${base}.webm`,
+  ])
+
+  await run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-ss', String(start + 0.1), '-i', SOURCE,
+    '-frames:v', '1', '-vf', `${portraitCrop(fx)},scale=${PORTRAIT.w}:${PORTRAIT.h}:flags=lanczos`,
+    '-q:v', '5',
     `${base}.jpg`,
   ])
 }
@@ -228,6 +296,33 @@ async function buildAudioBed() {
   console.log(`audio bed  ${((await sizeOf(out)) / 1024).toFixed(0)}kb  →  public/audio/bed.mp3`)
 }
 
+/**
+ * Standalone 4:5 still for the Meet Nate section.
+ *
+ * Not reused from a hero clip: those are cut for motion, so their frames are
+ * often mid-movement and blurred, and cropping a 2.12:1 plate into a tall box
+ * uses about a third of its width. This is its own moment, chosen for a still
+ * subject, cropped to the section's actual aspect.
+ */
+const PORTRAIT_STILL = { time: 37.4, fx: 0.5, w: 900, h: 1125 }
+
+async function buildPortraitStill() {
+  const { time, fx, w, h } = PORTRAIT_STILL
+  const cropW = Math.round((SRC_H * w) / h / 2) * 2
+  const x = Math.max(0, Math.min(SRC_W - cropW, Math.round(fx * SRC_W - cropW / 2)))
+
+  const out = join(OUT, 'nate-portrait.jpg')
+  await run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-ss', String(time), '-i', SOURCE,
+    '-frames:v', '1',
+    '-vf', `crop=${cropW}:${SRC_H}:${x}:58,scale=${w}:${h}:flags=lanczos`,
+    '-q:v', '3',
+    out,
+  ])
+  console.log(`portrait still  ${((await sizeOf(out)) / 1024).toFixed(0)}kb  →  /clips/nate-portrait.jpg`)
+}
+
 async function build() {
   await mkdir(OUT, { recursive: true })
 
@@ -235,29 +330,42 @@ async function build() {
   for (const clip of CLIPS) {
     process.stdout.write(`  ${clip.id}… `)
     await encodeClip(clip)
+    await encodePortrait(clip)
     const mp4 = await sizeOf(join(OUT, `${clip.id}.mp4`))
     const webm = await sizeOf(join(OUT, `${clip.id}.webm`))
-    const jpg = await sizeOf(join(OUT, `${clip.id}.jpg`))
-    console.log(`mp4 ${(mp4 / 1024).toFixed(0)}kb · webm ${(webm / 1024).toFixed(0)}kb · jpg ${(jpg / 1024).toFixed(0)}kb`)
-    rows.push({ ...clip, bytes: Math.min(mp4, webm) })
+    const pMp4 = await sizeOf(join(OUT, `${clip.id}-portrait.mp4`))
+    const pWebm = await sizeOf(join(OUT, `${clip.id}-portrait.webm`))
+    console.log(
+      `wide ${(Math.min(mp4, webm) / 1024).toFixed(0)}kb · portrait ${(Math.min(pMp4, pWebm) / 1024).toFixed(0)}kb`,
+    )
+    rows.push({ ...clip, bytes: Math.min(mp4, webm), portraitBytes: Math.min(pMp4, pWebm) })
   }
 
-  const total = rows.reduce((n, r) => n + r.bytes, 0)
-  console.log(`\ntotal (lighter codec per clip): ${(total / 1024 / 1024).toFixed(2)}MB`)
-
-  // Lightest clip first is what the mobile/save-data path falls back to.
-  const lightest = rows.reduce((a, b) => (a.bytes <= b.bytes ? a : b)).id
+  const wide = rows.reduce((n, r) => n + r.bytes, 0)
+  const portrait = rows.reduce((n, r) => n + r.portraitBytes, 0)
+  console.log(`\nwide ${(wide / 1024 / 1024).toFixed(2)}MB · portrait ${(portrait / 1024 / 1024).toFixed(2)}MB`)
 
   const body = `// GENERATED by scripts/build-clips.mjs — do not edit by hand.
 // Re-run \`npm run assets:clips\` after changing the CLIPS array in that script.
 
-export type Clip = {
-  id: string
+export type ClipSource = {
   /** Public paths; the browser picks whichever source it can play. */
   webm: string
   mp4: string
   poster: string
+}
+
+export type Clip = {
+  id: string
   alt: string
+  /** Landscape cut, 2.12:1 — desktop and tablet. */
+  wide: ClipSource
+  /**
+   * 9:16 cut framed on the subject — phones. The wide plate loses about two
+   * thirds of its width to \`object-cover\` in a portrait viewport, which slices
+   * whoever is in frame; this is cropped per clip instead.
+   */
+  portrait: ClipSource
 }
 
 export const clips: Clip[] = [
@@ -265,24 +373,33 @@ ${rows
   .map(
     (r) => `  {
     id: '${r.id}',
-    webm: '/clips/${r.id}.webm',
-    mp4: '/clips/${r.id}.mp4',
-    poster: '/clips/${r.id}.jpg',
     alt: ${JSON.stringify(r.alt)},
+    wide: {
+      webm: '/clips/${r.id}.webm',
+      mp4: '/clips/${r.id}.mp4',
+      poster: '/clips/${r.id}.jpg',
+    },
+    portrait: {
+      webm: '/clips/${r.id}-portrait.webm',
+      mp4: '/clips/${r.id}-portrait.mp4',
+      poster: '/clips/${r.id}-portrait.jpg',
+    },
   },`,
   )
   .join('\n')}
 ]
 
-/** Smallest clip — used alone on mobile and under save-data. */
-export const lightestClip: Clip = clips.find((c) => c.id === '${lightest}') ?? clips[0]
-
 /** Shown before any clip can play, and as the reduced-motion still. */
-export const heroPoster = clips[0].poster
+export const heroPoster = clips[0].wide.poster
+export const heroPosterPortrait = clips[0].portrait.poster
+
+/** Standalone 4:5 still for the Meet Nate section. */
+export const natePortrait = '/clips/nate-portrait.jpg'
 `
   await writeFile(MANIFEST, body)
   console.log(`manifest → ${MANIFEST}`)
 
+  await buildPortraitStill()
   await buildAudioBed()
 }
 

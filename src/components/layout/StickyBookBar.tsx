@@ -11,14 +11,29 @@ import { cn } from '@/lib/cn'
  * on desktop, where the header stays put.
  */
 export function StickyBookBar() {
-  const [shown, setShown] = useState(false)
+  const [pastHero, setPastHero] = useState(false)
+  const [bookingInView, setBookingInView] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setShown(window.scrollY > window.innerHeight * 0.85)
+    const onScroll = () => setPastHero(window.scrollY > window.innerHeight * 0.85)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  // Stand down while the booking section is on screen — otherwise the bar and
+  // that section's own CTA sit one above the other reading as a duplicate.
+  useEffect(() => {
+    const el = document.getElementById('book')
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => setBookingInView(entry.isIntersecting), {
+      threshold: 0.2,
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const shown = pastHero && !bookingInView
 
   if (!bookingTarget()) return null
 

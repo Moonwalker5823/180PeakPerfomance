@@ -50,7 +50,15 @@ export function OneEighty() {
   const quoteY = mapRange(progress, 0.66, 0.86, 24, 0)
 
   return (
-    <section id="the-180" ref={ref} className="rule-t relative h-[260vh] scroll-mt-16 sm:scroll-mt-20">
+    // Shorter on small screens. The sticky child is a full viewport tall, so
+    // once the scrub finishes there's always a screen-height tail while it
+    // scrolls away — on a phone that tail is a lot of thumb-work through an
+    // increasingly empty frame. Less runway there, full runway on desktop.
+    <section
+      id="the-180"
+      ref={ref}
+      className="rule-t relative h-[190vh] scroll-mt-16 sm:h-[230vh] sm:scroll-mt-20 lg:h-[260vh]"
+    >
       <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden">
         {/* The numeral, doing the turnaround. */}
         <span

@@ -29,6 +29,8 @@ export function SoundToggle({ className }: { className?: string }) {
   const fadeRef = useRef<number>(0)
   const optedOutRef = useRef(false)
   const [on, setOn] = useState(false)
+  /** Autoplay was refused, so the control has to ask for the gesture it needs. */
+  const [needsGesture, setNeedsGesture] = useState(false)
 
   const fadeTo = useCallback((target: number, onDone?: () => void) => {
     const el = audioRef.current
@@ -83,7 +85,9 @@ export function SoundToggle({ className }: { className?: string }) {
     const events = ['pointerdown', 'touchend', 'keydown', 'click'] as const
 
     const onFirstGesture = () => {
-      void start().catch(() => {})
+      void start()
+        .then(() => setNeedsGesture(false))
+        .catch(() => {})
       teardown()
     }
 
@@ -96,7 +100,9 @@ export function SoundToggle({ className }: { className?: string }) {
     void start()
       .then(teardown)
       .catch(() => {
-        // Blocked — wait for the visitor to touch the page.
+        // Blocked — wait for the visitor to touch the page, and say so on the
+        // control. "Sound off" reads as a state they chose; this is not that.
+        setNeedsGesture(true)
         events.forEach((e) => window.addEventListener(e, onFirstGesture, { passive: true }))
       })
 
@@ -145,7 +151,10 @@ export function SoundToggle({ className }: { className?: string }) {
             />
           ))}
         </span>
-        {on ? 'Sound on' : 'Sound off'}
+        {/* "Sound off" reads as a choice the visitor made. When the browser
+            refused autoplay it isn't — so the control asks for the gesture it
+            needs instead of misreporting its own state. */}
+        {on ? 'Sound on' : needsGesture ? 'Turn on sound' : 'Sound off'}
       </button>
     </>
   )

@@ -27,27 +27,28 @@ export function Section({ id, children, className, divided = true }: Props) {
   const { ref, inView } = useInView<HTMLDivElement>()
 
   return (
-    <section
-      id={id}
-      className={cn(
-        'relative py-24 sm:py-32 lg:py-40',
-        // Anchor links land under the fixed header without this — it's 64px
-        // tall on mobile and 80px from `sm` up.
-        'scroll-mt-16 sm:scroll-mt-20',
-        divided && 'rule-t',
-        className,
-      )}
-    >
-      <div
-        ref={ref}
-        className={cn(
-          'transition-[opacity,transform] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none',
-          inView
-            ? 'translate-y-0 opacity-100'
-            : 'translate-y-6 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100',
-        )}
-      >
-        {children}
+    <section className={cn('relative py-24 sm:py-32 lg:py-40', divided && 'rule-t', className)}>
+      {/*
+        The anchor sits on the content box, not the <section>.
+        Targeting the section scrolls to the top of its *padding* — up to 160px
+        of it at `lg` — so a nav click lands on a screen of empty space with the
+        content pushed below the fold. Anchoring here puts the content itself
+        just under the header.
+
+        scroll-mt clears the fixed header: 64px on mobile, 80px from `sm` up.
+      */}
+      <div id={id} className="scroll-mt-16 sm:scroll-mt-20">
+        <div
+          ref={ref}
+          className={cn(
+            'transition-[opacity,transform] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none',
+            inView
+              ? 'translate-y-0 opacity-100'
+              : 'translate-y-6 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100',
+          )}
+        >
+          {children}
+        </div>
       </div>
     </section>
   )
