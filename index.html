@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <title>180 Peak Performance — Training, Nutrition &amp; Mindset with Nate Campbell</title>
+    <meta
+      name="description"
+      content="Consistent with the workouts. Disciplined with the nutrition. Nate Campbell, founder of 180 Peak Performance, coaches the turnaround — book a consult."
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="180 Peak Performance" />
+    <meta
+      property="og:description"
+      content="You're making a 180 — you're going from weak mind to a positive mind. Training, nutrition and mindset coaching with Nate Campbell."
+    />
+    <!-- Open Graph requires an ABSOLUTE url. Scrapers (Slack, iMessage, X,
+         Facebook) fetch the page without a base and silently drop a relative
+         one, so the preview renders with no image. %VITE_SITE_URL% is
+         substituted at build time — see .env for the default, and override it
+         as a Railway build variable if the domain changes. -->
+    <meta property="og:url" content="%VITE_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_SITE_URL%/clips/gym-stand.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/clips/gym-stand.jpg" />
+  </head>
+  <body class="bg-ink text-paper antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

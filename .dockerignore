@@ -1,0 +1,13 @@
+node_modules
+dist
+.cache
+.git
+# .env is NOT ignored — it carries public build-time defaults (VITE_SITE_URL)
+# that index.html substitutes. Excluding it leaves %VITE_SITE_URL% literal in
+# the shipped meta tags. Only the .local variants are secret.
+.env.local
+.env.*.local
+assets-source
+scripts
+*.md
+.DS_Store

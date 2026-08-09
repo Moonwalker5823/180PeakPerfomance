@@ -1,0 +1,228 @@
+@import 'tailwindcss';
+
+/* -------------------------------------------------------------------------
+   Mono brutalist. Near-black canvas, stark white type, hairline rules.
+   The footage supplies every colour on the page — the palette deliberately
+   does not, so a clip cut never fights a brand accent.
+   ------------------------------------------------------------------------- */
+@theme {
+  --color-ink: #0a0a0a;
+  --color-ink-raised: #131313;
+  --color-line: #272727;
+  --color-line-bright: #3d3d3d;
+  --color-paper: #fafafa;
+  --color-muted: #8a8a8a;
+
+  --font-display: 'Anton', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-cut: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+
+  /* Anton only ships one weight and sits optically small at display sizes;
+     the tight tracking is what makes it read like the logo's lettering. */
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    line-height: 0.86;
+  }
+
+  ::selection {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-paper);
+    outline-offset: 3px;
+  }
+}
+
+@layer utilities {
+  /* Hairline rules read as 1px at any DPR without going fuzzy. */
+  .rule-t {
+    border-top: 1px solid var(--color-line);
+  }
+  .rule-b {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Hero cut transition.
+
+   A hard cut, not a crossfade: the outgoing frame is gone before the incoming
+   one appears. The black flash covers the swap, and the chromatic sweep fakes
+   an RGB split without putting a filter on the video element itself — filtering
+   a playing <video> is expensive enough to drop frames on mid-range hardware.
+   ------------------------------------------------------------------------- */
+@keyframes cut-flash {
+  0% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cut-split {
+  0% {
+    opacity: 0.75;
+    transform: translate3d(-4px, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+@keyframes cut-jolt {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.015);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.cut-flash {
+  animation: cut-flash 90ms steps(2, end) forwards;
+}
+
+.cut-split {
+  animation: cut-split 140ms var(--ease-cut) forwards;
+  mix-blend-mode: screen;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 0, 72, 0.5) 0%,
+    transparent 42%,
+    transparent 58%,
+    rgba(0, 208, 255, 0.5) 100%
+  );
+}
+
+.cut-jolt {
+  animation: cut-jolt 260ms var(--ease-cut) forwards;
+}
+
+/* Slow push-in across a clip's hold. Restarted imperatively on every cut, so
+   each shot drifts forward instead of sitting dead still. */
+@keyframes push-in {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.055);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Film grain. Eight discrete positions on a stepped loop — continuous motion
+   would smear into a shimmer, whereas stepping reads as projected emulsion.
+   ------------------------------------------------------------------------- */
+@keyframes grain-shift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  12.5% {
+    transform: translate3d(-3%, -4%, 0);
+  }
+  25% {
+    transform: translate3d(-7%, 2%, 0);
+  }
+  37.5% {
+    transform: translate3d(4%, -6%, 0);
+  }
+  50% {
+    transform: translate3d(-2%, 5%, 0);
+  }
+  62.5% {
+    transform: translate3d(6%, 1%, 0);
+  }
+  75% {
+    transform: translate3d(-5%, -2%, 0);
+  }
+  87.5% {
+    transform: translate3d(2%, 6%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.film-grain {
+  /* Oversized so the jitter never exposes an edge. */
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  animation: grain-shift 700ms steps(1, end) infinite;
+  will-change: transform;
+}
+
+/* Equaliser bars on the sound toggle — only animate while audio is playing,
+   so the control always tells the truth about its own state. */
+@keyframes eq-bounce {
+  0%,
+  100% {
+    height: 3px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+.eq-bar {
+  animation: eq-bounce 900ms ease-in-out infinite;
+}
+
+/* The letterbox retracting on first load — the one moment the page behaves
+   like a title sequence rather than a website. */
+@keyframes letterbox-open {
+  from {
+    height: 12vh;
+  }
+  to {
+    height: 0;
+  }
+}
+
+.letterbox-bar {
+  animation: letterbox-open 1400ms cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .cut-flash,
+  .cut-split,
+  .cut-jolt,
+  .film-grain,
+  .letterbox-bar,
+  .eq-bar {
+    animation: none;
+  }
+
+  .eq-bar {
+    height: 8px;
+  }
+
+  .letterbox-bar {
+    height: 0;
+  }
+}
