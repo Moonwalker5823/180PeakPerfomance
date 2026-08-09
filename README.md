@@ -158,7 +158,22 @@ Things worth knowing if you touch the layout, each of which was a real bug here:
 
 ---
 
-## Deploy — Railway
+## Deploy — Vercel
+
+[`vercel.json`](vercel.json) pins the Vite preset, the immutable caching on
+hashed assets, and a filesystem-first SPA rewrite. Vercel serves real files
+before it applies the rewrite, so `/robots.txt` and `/sitemap.xml` still resolve.
+
+Set these under **Settings → Environment Variables**, then redeploy — Vite
+inlines `VITE_*` at build time, so a change needs a new build, not a restart:
+
+| Variable | Why |
+|---|---|
+| `VITE_SITE_URL` | **Set this first.** It defaults to `https://180peakperformance.com`, which does not currently resolve — so link previews would point at a dead domain. Use the real Vercel URL (no trailing slash) until the domain is sorted. |
+| `VITE_CALENDLY_URL` | Turns every book button on. Without it the page has no conversion path. |
+| `VITE_CONTACT_EMAIL` | Optional `mailto:` fallback. |
+
+## Deploy — Railway (alternative)
 
 Dockerfile → Caddy. `railway.json` pins the Dockerfile builder so Nixpacks
 doesn't guess.
