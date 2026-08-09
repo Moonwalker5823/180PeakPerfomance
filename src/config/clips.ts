@@ -108,7 +108,7 @@ export const clips: Clip[] = [
   },
   {
     id: 'beach',
-    alt: "Nate on the beach at the water line",
+    alt: "Nate outdoors by the water",
     wide: {
       webm: '/clips/beach.webm',
       mp4: '/clips/beach.mp4',

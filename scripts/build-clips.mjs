@@ -49,7 +49,18 @@ const CLIPS = [
   { id: 'playa-wall', start: 39.4,  duration: 2.2, fx: 0.44, alt: 'Nate outside the juice bar' },                  // [39.1–42.5]
   { id: 'sweat',      start: 71.5,  duration: 2.2, fx: 0.34, alt: 'Close on Nate mid-set, catching his breath' },  // [71.1–74.7]
   { id: 'arms-up',    start: 85.7,  duration: 2.2, fx: 0.48, alt: 'Nate with arms raised against open sky' },      // [85.3–88.9]
-  { id: 'beach',      start: 124.8, duration: 2.2, fx: 0.40, alt: 'Nate on the beach at the water line' },         // [124.4–128.0]
+  // Portrait uses a different moment entirely. The wide shot works because you
+  // read him against the beach and skyline; cropped to 9:16 it becomes the back
+  // of his head and nothing else, and no focus point fixes that. The override
+  // is a composed profile from shot [117.3–120.9] instead.
+  {
+    id: 'beach',
+    start: 124.8,
+    duration: 2.2,
+    fx: 0.40,
+    portrait: { start: 118.4, fx: 0.55 },
+    alt: 'Nate outdoors by the water',
+  },                                                                                                              // [124.4–128.0]
 ]
 
 /**
@@ -221,7 +232,13 @@ async function encodeClip({ id, start, duration }) {
   ])
 }
 
-async function encodePortrait({ id, start, duration, fx }) {
+async function encodePortrait(clip) {
+  const { id, duration } = clip
+  // A clip may name its own moment for the vertical cut — some shots simply
+  // don't survive a 9:16 crop, whatever focus point you give them.
+  const start = clip.portrait?.start ?? clip.start
+  const fx = clip.portrait?.fx ?? clip.fx
+
   const base = join(OUT, `${id}-portrait`)
   const common = ['-ss', String(start), '-i', SOURCE, '-t', String(duration), '-an']
   const filter = `${portraitCrop(fx)},scale=${PORTRAIT.w}:${PORTRAIT.h}:flags=lanczos,fps=30`
